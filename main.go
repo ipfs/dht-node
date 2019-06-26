@@ -31,7 +31,9 @@ import (
 	record "github.com/libp2p/go-libp2p-record"
 	id "github.com/libp2p/go-libp2p/p2p/protocol/identify"
 	ma "github.com/multiformats/go-multiaddr"
+	"github.com/opentracing/opentracing-go"
 	prom "github.com/prometheus/client_golang/prometheus"
+	config "github.com/uber/jaeger-client-go/config"
 	"go.opencensus.io/stats/view"
 	"go.opencensus.io/zpages"
 )
@@ -132,6 +134,7 @@ func main() {
 	relay := flag.Bool("relay", false, "Enable libp2p circuit relaying for this node")
 	portBegin := flag.Int("portBegin", 0, "If set, begin port allocation here")
 	bucketSize := flag.Int("bucketSize", defaultKValue, "Specify the bucket size")
+	sampling := flag.Float64("sampling", -1, "Tracing sampling config")
 	flag.Parse()
 	id.ClientVersion = "dhtbooster/2"
 
@@ -186,6 +189,10 @@ func main() {
 	if *pprofport > 0 {
 		fmt.Println("Running metrics server on port: %d", *pprofport)
 		go setupMetrics(*pprofport)
+	}
+
+	if *sampling != -1 {
+		go setupTracing(*sampling)
 	}
 
 	totalprovs := 0
@@ -320,5 +327,26 @@ func setupMetrics(port int) error {
 			log.Fatalf("Failed to run Prometheus /metrics endpoint: %v", err)
 		}
 	}()
+	return nil
+}
+
+func setupTracing(sampling float64) error {
+	tracerCfg := &config.Configuration{
+		Sampler: &config.SamplerConfig{
+			Type:  "const",
+			Param: sampling,
+		},
+		Reporter: &config.ReporterConfig{
+			LogSpans: true,
+		},
+	}
+	//we are ignoring the closer for now
+	tracer, _, err := tracerCfg.New("dht_node_tracer")
+	if err != nil {
+		return err
+	}
+	opentracing.SetGlobalTracer(
+		tracer,
+	)
 	return nil
 }
