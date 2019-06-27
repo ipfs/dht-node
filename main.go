@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"contrib.go.opencensus.io/exporter/jaeger"
 	"contrib.go.opencensus.io/exporter/prometheus"
 	human "github.com/dustin/go-humanize"
 	ds "github.com/ipfs/go-datastore"
@@ -37,6 +38,7 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 	prom "github.com/prometheus/client_golang/prometheus"
 	"go.opencensus.io/stats/view"
+	"go.opencensus.io/trace"
 	"go.opencensus.io/zpages"
 )
 
@@ -181,6 +183,7 @@ func main() {
 	portBegin := flag.Int("portBegin", 0, "If set, begin port allocation here")
 	bucketSize := flag.Int("bucketSize", defaultKValue, "Specify the bucket size")
 	bootstrapConcurency := flag.Int("bootstrapConc", 128, "How many concurrent bootstraps to run")
+	sampling := flag.Float64("sampling", -1, "Enable tracing with the provided sampling value")
 	flag.Parse()
 	id.ClientVersion = "dhtbooster/2"
 
@@ -191,6 +194,15 @@ func main() {
 	if *pprofport > 0 {
 		fmt.Printf("Running metrics server on port: %d\n", *pprofport)
 		go setupMetrics(*pprofport)
+	}
+
+	if *sampling != -1 {
+		fmt.Printf("Tracing has been enabled, sampling: %f\n", *sampling)
+		je, err := setupTracing(*sampling)
+		if err != nil {
+			panic(err)
+		}
+		defer je.Flush()
 	}
 
 	getPort := portSelector(*portBegin)
@@ -369,4 +381,30 @@ func setupMetrics(port int) error {
 		}
 	}()
 	return nil
+}
+
+func setupTracing(sampling float64) (*jaeger.Exporter, error) {
+	// agentEndpointURI := "localhost:6831"
+	collectorEndpointURI := "http://localhost:14268/api/traces"
+	// setup Jaeger
+	je, err := jaeger.NewExporter(jaeger.Options{
+		OnError:           func(err error) { log.Errorf("jaeger: %v", err) },
+		CollectorEndpoint: collectorEndpointURI,
+		Process: jaeger.Process{
+			ServiceName: "dht_node",
+			Tags:        []jaeger.Tag{
+				// example of how to add global tags
+				// jaeger.StringTag("cluster_id", cfg.ClusterID),
+			},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// register jaeger with opencensus
+	trace.RegisterExporter(je)
+	// configure tracing
+	trace.ApplyConfig(trace.Config{DefaultSampler: trace.ProbabilitySampler(sampling)})
+	return je, nil
 }
