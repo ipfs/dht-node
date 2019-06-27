@@ -1,6 +1,7 @@
 module github.com/ipfs/dht-node
 
 require (
+	contrib.go.opencensus.io/exporter/jaeger v0.1.0
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0
 	github.com/dustin/go-humanize v1.0.0
 	github.com/golang/snappy v0.0.1 // indirect
@@ -26,3 +27,5 @@ require (
 	golang.org/x/sys v0.0.0-20190531175056-4c3a928424d2 // indirect
 	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
+
+replace github.com/libp2p/go-libp2p-dht-kad => ../../libp2p/go-libp2p-kad-dht
