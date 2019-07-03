@@ -6,6 +6,7 @@ require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/golang/snappy v0.0.1 // indirect
 	github.com/ipfs/go-datastore v0.0.5
+	github.com/ipfs/go-ds-badger v0.0.5
 	github.com/ipfs/go-ds-leveldb v0.0.2
 	github.com/ipfs/go-ipns v0.0.1
 	github.com/ipfs/go-log v0.0.1
@@ -17,7 +18,7 @@ require (
 	github.com/libp2p/go-libp2p-kad-dht v0.1.2-0.20190629173555-5ff18aae16c9
 	github.com/libp2p/go-libp2p-net v0.1.0
 	github.com/libp2p/go-libp2p-peer v0.2.0
-	github.com/libp2p/go-libp2p-peerstore v0.1.2-0.20190621130618-cfa9bb890c1a
+	github.com/libp2p/go-libp2p-peerstore v0.1.2-0.20190702213650-ed93577c96ae
 	github.com/libp2p/go-libp2p-record v0.1.0
 	github.com/libp2p/go-libp2p-swarm v0.1.1-0.20190606081407-8be680aef8de // indirect
 	github.com/libp2p/go-maddr-filter v0.0.5 // indirect
@@ -26,7 +27,4 @@ require (
 	github.com/opentracing/opentracing-go v1.1.0 // indirect
 	github.com/prometheus/client_golang v1.0.0
 	go.opencensus.io v0.22.0
-	golang.org/x/net v0.0.0-20190522155817-f3200d17e092 // indirect
-	golang.org/x/sys v0.0.0-20190531175056-4c3a928424d2 // indirect
-	gopkg.in/yaml.v2 v2.2.2 // indirect
 )
