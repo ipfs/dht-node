@@ -23,7 +23,7 @@ require (
 	github.com/multiformats/go-multiaddr-dns v0.2.0 // indirect
 	github.com/multiformats/go-multiaddr-net v0.1.1 // indirect
 	github.com/opentracing/opentracing-go v1.1.0 // indirect
-	github.com/prometheus/client_golang v1.0.0
+	github.com/prometheus/client_golang v1.2.1
 	go.opencensus.io v0.22.1
 )
 
