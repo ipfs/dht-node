@@ -121,7 +121,8 @@ func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, l
 
 	priv, _, _ := crypto.GenerateKeyPair(crypto.Ed25519, 0)
 
-	opts := []libp2p.Option{libp2p.ListenAddrStrings(addr), libp2p.ConnectionManager(cmgr), libp2p.Identity(priv)}
+	opts := []libp2p.Option{libp2p.ListenAddrStrings(addr), libp2p.ConnectionManager(cmgr), libp2p.Identity(priv),
+		libp2p.EnableNATService(), libp2p.AutoNATServiceRateLimit(0,3, time.Minute)}
 	if relay {
 		opts = append(opts, libp2p.EnableRelay(circuit.OptHop))
 	}
@@ -136,7 +137,8 @@ func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, l
 		"ipns": ipns.Validator{KeyBook: h.Peerstore()},
 	}),
 	dht.Mode(dht.ModeServer), dht.V1CompatibleMode(false),
-	dht.QueryFilter(dht.PublicQueryFilter), dht.RoutingTableFilter(dht.PublicRoutingTableFilter))
+	dht.QueryFilter(dht.PublicQueryFilter), dht.RoutingTableFilter(dht.PublicRoutingTableFilter),
+	)
 	if err != nil {
 		panic(err)
 	}
@@ -252,6 +254,7 @@ func runMany(dbpath string, getPort func() int, many, bucketSize, bsCon int, rel
 
 		laddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", getPort())
 		h, d, err := makeAndStartNode(ds, laddr, relay, bucketSize, limiter)
+		fmt.Fprintf(os.Stderr, "Host %d has addr %v:\n", i, peer.AddrInfo{ID: h.ID(), Addrs: h.Addrs()})
 		if err != nil {
 			panic(err)
 		}
