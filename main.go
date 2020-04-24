@@ -91,7 +91,7 @@ func waitForNotifications(r io.Reader, provs chan *provInfo, mesout chan string)
 	}
 }
 
-func bootstrapper() pstore.PeerInfo {
+func bootstrapper() []pstore.PeerInfo {
 	v2Addr := "/ip4/139.178.89.189/tcp/4001/p2p/QmZa1sAxajnQjVM8WjWXoMbmPd7NsWhfKsPkErzpm9wGkp"
 	v1Addr := "/ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ"
 	boosterAddr := "/ip4/207.148.19.196/tcp/20074/p2p/12D3KooWGXBbSZ3ko3UvoekdnnSrdmuFic3XHuNKvGcZyrH1mVxr"
@@ -104,14 +104,20 @@ func bootstrapper() pstore.PeerInfo {
 		panic(err)
 	}
 
-	addr := startingPeer
+	var addrs []multiaddr.Multiaddr
+	addrs = append(addrs, startingPeer)
+	addrs = append(addrs, dht.DefaultBootstrapPeers...)
 	//addr := dht.DefaultBootstrapPeers[rand.Intn(len(dht.DefaultBootstrapPeers))]
-	ai, err := pstore.InfoFromP2pAddr(addr)
-	if err != nil {
-		panic(err)
-	}
 
-	return *ai
+	var addrInfos []peer.AddrInfo
+	for _ ,a := range addrs {
+		ai, err := pstore.InfoFromP2pAddr(a)
+		if err != nil {
+			panic(err)
+		}
+		addrInfos = append(addrInfos, *ai)
+	}
+	return addrInfos
 }
 
 var bootstrapDone int64
@@ -154,10 +160,13 @@ func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, l
 			limiter <- struct{}{}
 		}
 
-		for i := 0; i < 2; i++ {
-			if err := h.Connect(context.Background(), bootstrapper()); err != nil {
-				fmt.Println("bootstrap connect failed: ", err)
-				i--
+		bootstrappers := bootstrapper()
+		for _, b := range bootstrappers {
+			for i := 0; i < 2; i++ {
+				if err := h.Connect(context.Background(), b); err != nil {
+					fmt.Printf("bootstrap connect to %v failed: %v \n", b.ID, err)
+					i--
+				}
 			}
 		}
 
