@@ -6,8 +6,8 @@ import (
 	"expvar"
 	"flag"
 	"fmt"
+	"github.com/multiformats/go-multiaddr"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/http/pprof"
 	"os"
@@ -92,7 +92,20 @@ func waitForNotifications(r io.Reader, provs chan *provInfo, mesout chan string)
 }
 
 func bootstrapper() pstore.PeerInfo {
-	addr := dht.DefaultBootstrapPeers[rand.Intn(len(dht.DefaultBootstrapPeers))]
+	v2Addr := "/ip4/139.178.89.189/tcp/4001/p2p/QmZa1sAxajnQjVM8WjWXoMbmPd7NsWhfKsPkErzpm9wGkp"
+	v1Addr := "/ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ"
+	boosterAddr := "/ip4/207.148.19.196/tcp/20074/p2p/12D3KooWGXBbSZ3ko3UvoekdnnSrdmuFic3XHuNKvGcZyrH1mVxr"
+
+	allStarting := []string{v1Addr, v2Addr, boosterAddr}
+	_= allStarting
+
+	startingPeer, err := multiaddr.NewMultiaddr(v2Addr)
+	if err != nil {
+		panic(err)
+	}
+
+	addr := startingPeer
+	//addr := dht.DefaultBootstrapPeers[rand.Intn(len(dht.DefaultBootstrapPeers))]
 	ai, err := pstore.InfoFromP2pAddr(addr)
 	if err != nil {
 		panic(err)
@@ -121,7 +134,9 @@ func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, l
 	d, err := dht.New(context.Background(), h, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(record.NamespacedValidator{
 		"pk":   record.PublicKeyValidator{},
 		"ipns": ipns.Validator{KeyBook: h.Peerstore()},
-	}))
+	}),
+	dht.Mode(dht.ModeServer), dht.V1CompatibleMode(false),
+	dht.QueryFilter(dht.PublicQueryFilter), dht.RoutingTableFilter(dht.PublicRoutingTableFilter))
 	if err != nil {
 		panic(err)
 	}
@@ -177,7 +192,7 @@ func main() {
 	bootstrapConcurency := flag.Int("bootstrapConc", 32, "How many concurrent bootstraps to run")
 	stagger := flag.Duration("stagger", 0*time.Second, "Duration to stagger nodes starts by")
 	flag.Parse()
-	id.ClientVersion = "dhtbooster/2"
+	id.ClientVersion = "dhtbooster/2p"
 
 	if *relay {
 		id.ClientVersion += "+relay"
