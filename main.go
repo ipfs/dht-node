@@ -144,7 +144,6 @@ func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, l
 			"pk":   record.PublicKeyValidator{},
 			"ipns": ipns.Validator{KeyBook: h.Peerstore()},
 		}),
-		dht.Mode(dht.ModeServer),
 		dht.V1CompatibleMode(true),
 		dht.QueryFilter(dht.PublicQueryFilter), dht.RoutingTableFilter(dht.PublicRoutingTableFilter),
 	}
@@ -155,6 +154,11 @@ func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, l
 
 	innerDHTOpts = append(innerDHTOpts,
 		dht.ProtocolPrefix("/adin"),
+		dht.Mode(dht.ModeServer),
+	)
+
+	outerDHTOpts = append(outerDHTOpts,
+		dht.Mode(dht.ModeClient),
 	)
 
 	d, err := dht.NewNested(context.Background(), h, innerDHTOpts, outerDHTOpts)
