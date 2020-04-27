@@ -330,17 +330,24 @@ func runMany(dbpath string, getPort func() int, many, bucketSize, bsCon int, rel
 			hyperLock.Lock()
 			uniqpeers := hyperlog.Estimate()
 			hyperLock.Unlock()
-			printStatusLine(many, start, atomic.LoadInt64(&peersConnected), uniqpeers, totalprovs)
+			innerRTSize := 0
+			outerRTSize := 0
+			for _, d := range dhts{
+				innerRTSize += d.Inner.RoutingTable().Size()
+				outerRTSize += d.Outer.RoutingTable().Size()
+			}
+
+			printStatusLine(many, start, atomic.LoadInt64(&peersConnected), uniqpeers, totalprovs, innerRTSize, outerRTSize)
 		}
 	}
 }
 
-func printStatusLine(ndht int, start time.Time, totalpeers int64, uniqpeers uint64, totalprovs int) {
+func printStatusLine(ndht int, start time.Time, totalpeers int64, uniqpeers uint64, totalprovs, innerRTSize, outerRTSize int) {
 	uptime := time.Second * time.Duration(int(time.Since(start).Seconds()))
 	var mstat runtime.MemStats
 	runtime.ReadMemStats(&mstat)
 
-	fmt.Fprintf(os.Stderr, "[NumDhts: %d, Uptime: %s, Memory Usage: %s, TotalPeers: %d/%d, Total Provs: %d, BootstrapsDone: %d]\n", ndht, uptime, human.Bytes(mstat.Alloc), totalpeers, uniqpeers, totalprovs, atomic.LoadInt64(&bootstrapDone))
+	fmt.Fprintf(os.Stderr, "[NumDhts: %d, Uptime: %s, Memory Usage: %s, TotalPeers: %d/%d, RTSize: %d/%d, Total Provs: %d, BootstrapsDone: %d]\n", ndht, uptime, human.Bytes(mstat.Alloc), totalpeers, uniqpeers, totalprovs, innerRTSize, outerRTSize, atomic.LoadInt64(&bootstrapDone))
 }
 
 func runSingleDHTWithUI(path string, relay bool, bucketSize int) {
