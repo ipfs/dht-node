@@ -121,7 +121,7 @@ func bootstrapper() []pstore.PeerInfo {
 
 var bootstrapDone int64
 
-func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, limiter chan struct{}) (host.Host, *dht.NestedDHT, error) {
+func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, limiter chan struct{}, extraBs *peer.AddrInfo) (host.Host, *dht.NestedDHT, error) {
 	cmgr := connmgr.NewConnManager(1500, 2000, time.Minute)
 
 	priv, _, _ := crypto.GenerateKeyPair(crypto.Ed25519, 0)
@@ -179,6 +179,9 @@ func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, l
 		}
 
 		bootstrappers := bootstrapper()
+		if extraBs != nil {
+			bootstrappers = append(bootstrappers, *extraBs)
+		}
 		for _, b := range bootstrappers {
 			for i := 0; i < 2; i++ {
 				if err := h.Connect(context.Background(), b); err != nil {
@@ -280,7 +283,11 @@ func runMany(dbpath string, getPort func() int, many, bucketSize, bsCon int, rel
 		fmt.Fprintf(os.Stderr, ".")
 
 		laddr := fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", getPort())
-		h, d, err := makeAndStartNode(ds, laddr, relay, bucketSize, limiter)
+		var firstBs *peer.AddrInfo
+		if i > 0 {
+			firstBs = &peer.AddrInfo{ID: hosts[0].ID(), Addrs: hosts[0].Addrs()}
+		}
+		h, d, err := makeAndStartNode(ds, laddr, relay, bucketSize, limiter, firstBs)
 		fmt.Fprintf(os.Stderr, "Host %d has addr %v:\n", i, peer.AddrInfo{ID: h.ID(), Addrs: h.Addrs()})
 		if err != nil {
 			panic(err)
@@ -288,9 +295,6 @@ func runMany(dbpath string, getPort func() int, many, bucketSize, bsCon int, rel
 		h.Network().Notify(notifiee)
 		hosts = append(hosts, h)
 		dhts = append(dhts, d)
-		if i > 0 {
-			h.Connect(context.Background(), peer.AddrInfo{hosts[0].ID(), hosts[0].Addrs()})
-		}
 	}
 	fmt.Fprintf(os.Stderr, "\n")
 
@@ -347,7 +351,7 @@ func printStatusLine(ndht int, start time.Time, totalpeers int64, uniqpeers uint
 	var mstat runtime.MemStats
 	runtime.ReadMemStats(&mstat)
 
-	fmt.Fprintf(os.Stderr, "[NumDhts: %d, Uptime: %s, Memory Usage: %s, TotalPeers: %d/%d, RTSize: %d/%d, Total Provs: %d, BootstrapsDone: %d]\n", ndht, uptime, human.Bytes(mstat.Alloc), totalpeers, uniqpeers, totalprovs, innerRTSize, outerRTSize, atomic.LoadInt64(&bootstrapDone))
+	fmt.Fprintf(os.Stderr, "[NumDhts: %d, Uptime: %s, Memory Usage: %s, TotalPeers: %d/%d, RTSize: %d/%d, Total Provs: %d, BootstrapsDone: %d]\n", ndht, uptime, human.Bytes(mstat.Alloc), totalpeers, uniqpeers, innerRTSize, outerRTSize, totalprovs, atomic.LoadInt64(&bootstrapDone))
 }
 
 func runSingleDHTWithUI(path string, relay bool, bucketSize int) {
@@ -355,7 +359,7 @@ func runSingleDHTWithUI(path string, relay bool, bucketSize int) {
 	if err != nil {
 		panic(err)
 	}
-	h, _, err := makeAndStartNode(ds, "/ip4/0.0.0.0/tcp/19264", relay, bucketSize, nil)
+	h, _, err := makeAndStartNode(ds, "/ip4/0.0.0.0/tcp/19264", relay, bucketSize, nil, nil)
 	if err != nil {
 		panic(err)
 	}
