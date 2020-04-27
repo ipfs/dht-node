@@ -33,7 +33,6 @@ import (
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtmetrics "github.com/libp2p/go-libp2p-kad-dht/metrics"
-	dhtnest "github.com/libp2p/go-libp2p-kad-dht/nesting"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	record "github.com/libp2p/go-libp2p-record"
 	id "github.com/libp2p/go-libp2p/p2p/protocol/identify"
@@ -122,7 +121,7 @@ func bootstrapper() []pstore.PeerInfo {
 
 var bootstrapDone int64
 
-func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, limiter chan struct{}) (host.Host, *dhtnest.DHT, error) {
+func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, limiter chan struct{}) (host.Host, *dht.NestedDHT, error) {
 	cmgr := connmgr.NewConnManager(1500, 2000, time.Minute)
 
 	priv, _, _ := crypto.GenerateKeyPair(crypto.Ed25519, 0)
@@ -158,7 +157,7 @@ func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, l
 		dht.ProtocolPrefix("/adin"),
 	)
 
-	d, err := dhtnest.New(context.Background(), h, innerDHTOpts, outerDHTOpts)
+	d, err := dht.NewNested(context.Background(), h, innerDHTOpts, outerDHTOpts)
 	if err != nil {
 		panic(err)
 	}
@@ -250,7 +249,7 @@ func runMany(dbpath string, getPort func() int, many, bucketSize, bsCon int, rel
 
 	start := time.Now()
 	var hosts []host.Host
-	var dhts []*dhtnest.DHT
+	var dhts []*dht.NestedDHT
 
 	var hyperLock sync.Mutex
 	hyperlog := hyperloglog.New()
