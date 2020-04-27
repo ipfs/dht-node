@@ -33,7 +33,7 @@ import (
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	dhtmetrics "github.com/libp2p/go-libp2p-kad-dht/metrics"
-	dhtopts "github.com/libp2p/go-libp2p-kad-dht/opts"
+	dhtnest "github.com/libp2p/go-libp2p-kad-dht/nesting"
 	pstore "github.com/libp2p/go-libp2p-peerstore"
 	record "github.com/libp2p/go-libp2p-record"
 	id "github.com/libp2p/go-libp2p/p2p/protocol/identify"
@@ -122,7 +122,7 @@ func bootstrapper() []pstore.PeerInfo {
 
 var bootstrapDone int64
 
-func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, limiter chan struct{}) (host.Host, *dht.IpfsDHT, error) {
+func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, limiter chan struct{}) (host.Host, *dhtnest.DHT, error) {
 	cmgr := connmgr.NewConnManager(1500, 2000, time.Minute)
 
 	priv, _, _ := crypto.GenerateKeyPair(crypto.Ed25519, 0)
@@ -138,13 +138,27 @@ func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, l
 		panic(err)
 	}
 
-	d, err := dht.New(context.Background(), h, dhtopts.BucketSize(bucketSize), dhtopts.Datastore(ds), dhtopts.Validator(record.NamespacedValidator{
-		"pk":   record.PublicKeyValidator{},
-		"ipns": ipns.Validator{KeyBook: h.Peerstore()},
-	}),
-	dht.Mode(dht.ModeServer), dht.V1CompatibleMode(false),
-	dht.QueryFilter(dht.PublicQueryFilter), dht.RoutingTableFilter(dht.PublicRoutingTableFilter),
+	dhtBaseOpts := []dht.Option{
+		dht.BucketSize(bucketSize),
+		dht.Datastore(ds),
+		dht.Validator(record.NamespacedValidator{
+			"pk":   record.PublicKeyValidator{},
+			"ipns": ipns.Validator{KeyBook: h.Peerstore()},
+		}),
+		dht.Mode(dht.ModeServer),
+		dht.V1CompatibleMode(true),
+		dht.QueryFilter(dht.PublicQueryFilter), dht.RoutingTableFilter(dht.PublicRoutingTableFilter),
+	}
+
+	var innerDHTOpts, outerDHTOpts []dht.Option
+	innerDHTOpts = append(innerDHTOpts, dhtBaseOpts...)
+	outerDHTOpts = append(outerDHTOpts, dhtBaseOpts...)
+
+	innerDHTOpts = append(innerDHTOpts,
+		dht.ProtocolPrefix("/adin"),
 	)
+
+	d, err := dhtnest.New(context.Background(), h, innerDHTOpts, outerDHTOpts)
 	if err != nil {
 		panic(err)
 	}
@@ -153,7 +167,8 @@ func makeAndStartNode(ds ds.Batching, addr string, relay bool, bucketSize int, l
 	// it's safe to start doing this _before_ establishing any connections
 	// as we'll trigger a boostrap round as soon as we get a connection
 	// anyways.
-	d.Bootstrap(context.Background())
+	d.Inner.Bootstrap(context.Background())
+	d.Outer.Bootstrap(context.Background())
 
 	go func() {
 		if limiter != nil {
@@ -235,7 +250,7 @@ func runMany(dbpath string, getPort func() int, many, bucketSize, bsCon int, rel
 
 	start := time.Now()
 	var hosts []host.Host
-	var dhts []*dht.IpfsDHT
+	var dhts []*dhtnest.DHT
 
 	var hyperLock sync.Mutex
 	hyperlog := hyperloglog.New()
@@ -270,6 +285,9 @@ func runMany(dbpath string, getPort func() int, many, bucketSize, bsCon int, rel
 		h.Network().Notify(notifiee)
 		hosts = append(hosts, h)
 		dhts = append(dhts, d)
+		if i > 0 {
+			h.Connect(context.Background(), peer.AddrInfo{hosts[0].ID(), hosts[0].Addrs()})
+		}
 	}
 	fmt.Fprintf(os.Stderr, "\n")
 

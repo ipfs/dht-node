@@ -13,7 +13,7 @@ require (
 	github.com/libp2p/go-libp2p-circuit v0.2.1
 	github.com/libp2p/go-libp2p-connmgr v0.2.1
 	github.com/libp2p/go-libp2p-core v0.5.1
-	github.com/libp2p/go-libp2p-kad-dht v0.7.7
+	github.com/libp2p/go-libp2p-kad-dht v0.7.4-0.20200427001116-ebc8a38731c3
 	github.com/libp2p/go-libp2p-peerstore v0.2.3
 	github.com/libp2p/go-libp2p-record v0.1.2
 	github.com/multiformats/go-multiaddr v0.2.1
